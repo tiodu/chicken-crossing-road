@@ -1,121 +1,85 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useGameState } from './hooks/useGameState';
+import { GAME_STATE, GAME_CONFIG } from './game/config';
+import './index.css';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const {
+    gameState, bet, setBet, balance,
+    currentRow, multiplier, board,
+    revealedCells, startGame, selectCell,
+    cashOut, reset,
+  } = useGameState();
+
+  const isPlaying = gameState === GAME_STATE.PLAYING;
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="app">
+      <header>
+        <h1>🐔 Chicken Road</h1>
+        <div className="balance">{GAME_CONFIG.CURRENCY}{balance.toFixed(2)}</div>
+      </header>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+      <main>
+        <div className="board">
+          {board.length === 0 && (
+            <div className="board-empty">Place your bet and start crossing</div>
+          )}
+          {board.map((row, rowIdx) => (
+            <div
+              key={rowIdx}
+              className={`row ${rowIdx === currentRow && isPlaying ? 'row--active' : ''}`}
+            >
+              {row.map((_, colIdx) => {
+                const key = `${rowIdx}-${colIdx}`;
+                const revealed = revealedCells[key];
+                return (
+                  <button
+                    key={colIdx}
+                    className={`cell ${revealed ? `cell--${revealed}` : ''}`}
+                    onClick={() => selectCell(rowIdx, colIdx)}
+                    disabled={!isPlaying || rowIdx !== currentRow}
+                  >
+                    {revealed === 'car' ? '🚗' : revealed === 'safe' ? '✅' : '?'}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        {gameState === GAME_STATE.DEAD && (
+          <div className="status status--dead">💥 Hit by a car! You lost {GAME_CONFIG.CURRENCY}{bet.toFixed(2)}</div>
+        )}
+        {gameState === GAME_STATE.WIN && (
+          <div className="status status--win">🎉 Cashed out {GAME_CONFIG.CURRENCY}{(bet * multiplier).toFixed(2)}!</div>
+        )}
+
+        <div className="controls">
+          <div className="multiplier">{multiplier.toFixed(1)}x</div>
+
+          {!isPlaying ? (
+            <>
+              <div className="bet-control">
+                <label>Bet</label>
+                <input
+                  type="number"
+                  value={bet}
+                  min={GAME_CONFIG.MIN_BET}
+                  max={Math.min(GAME_CONFIG.MAX_BET, balance)}
+                  onChange={(e) => setBet(Number(e.target.value))}
+                />
+              </div>
+              <button className="btn btn--primary" onClick={gameState === GAME_STATE.IDLE ? startGame : reset}>
+                {gameState === GAME_STATE.IDLE ? 'Start' : 'Play Again'}
+              </button>
+            </>
+          ) : (
+            <button className="btn btn--cashout" onClick={cashOut} disabled={currentRow === 0}>
+              Cash Out {GAME_CONFIG.CURRENCY}{(bet * multiplier).toFixed(2)}
+            </button>
+          )}
+        </div>
+      </main>
+    </div>
+  );
 }
-
-export default App
